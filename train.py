@@ -30,7 +30,7 @@ def flatten_obs(obs) -> np.ndarray:
 def make_env(env_name, seed=None, record_video=False, video_folder="videos", algo=None, video_frequency=50):
     render_mode = 'rgb_array' if record_video else None
     env_kwargs = CONTINUOUS_ENV_KWARGS.get(env_name, {}).copy()
-    env = gym.make(env_name, render_mode=render_mode, **env_kwargs)
+    env = gym.make(env_name, render_mode=render_mode,**env_kwargs) #type: ignore
     if seed is not None:
         try:
             env.reset(seed=seed)
@@ -76,6 +76,8 @@ def train(
     ppo_epochs: int = 10,
     ppo_gae_lambda: float = 0.95,
     save_best: bool = True,
+    load_model: Optional[str] = None,
+    start_episode: int = 0,
 ):
     device_name = device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
     torch_device = torch.device(device_name)
@@ -171,11 +173,15 @@ def train(
     else:
         raise ValueError(f"Unsupported continuous algorithm {algo}")
 
+    if load_model:
+        print(f"Loading model from {load_model}...")
+        agent.load(load_model)
+
     print(f"Training {algo.upper()} on {env_name} for {episodes} episodes...")
     print(f"Device: {torch_device.type}, Action dim: {action_space.shape[0]}, Observations: {n_observations}")
 
     best_reward = -float('inf')
-    for i_episode in range(episodes):
+    for i_episode in range(start_episode, episodes):
         obs, _ = env.reset()
         obs_vec = flatten_obs(obs)
         state = torch.tensor(obs_vec, dtype=torch.float32, device=torch_device).unsqueeze(0)
@@ -292,6 +298,8 @@ if __name__ == '__main__':
     parser.add_argument('--ppo-epochs', type=int, default=10)
     parser.add_argument('--ppo-gae-lambda', type=float, default=0.95)
     parser.add_argument('--save-best', action='store_true')
+    parser.add_argument('--load-model', type=str, default=None, help='Path to model checkpoint to load')
+    parser.add_argument('--start-episode', type=int, default=0, help='Episode number to start from')
     args = parser.parse_args()
 
     train(
@@ -323,4 +331,6 @@ if __name__ == '__main__':
         ppo_epochs=args.ppo_epochs,
         ppo_gae_lambda=args.ppo_gae_lambda,
         save_best=args.save_best,
+        load_model=args.load_model,
+        start_episode=args.start_episode,
     )
