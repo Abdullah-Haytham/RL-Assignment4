@@ -50,13 +50,14 @@ def make_env(env_name, seed=None, record_video=False, video_folder="videos", alg
 def train(
     env_name: str,
     algo: str,
-    episodes: int = 500,
+    episodes: int = 1500,
     lr: float = 3e-4,
     gamma: float = 0.99,
-    entropy_coef: float = 0.01,
+    entropy_coef: float = 0.0,
     value_coef: float = 0.5,
     max_grad_norm: float = 0.5,
-    record_video: bool = False,
+    record_video: bool = True,
+    video_frequency: int = 50,
     device: Optional[str] = None,
     project: str = "rl-ass4",
     entity: Optional[str] = None,
@@ -108,11 +109,13 @@ def train(
         'ppo_clip': ppo_clip,
         'ppo_epochs': ppo_epochs,
         'ppo_gae_lambda': ppo_gae_lambda,
+        'record_video': record_video,
+        'video_frequency': video_frequency,
     }
 
     run = wandb.init(project=project, entity=entity, name=run_name, config=config)
 
-    env = make_env(env_name, seed=seed, record_video=record_video, algo=algo)
+    env = make_env(env_name, seed=seed, record_video=record_video, algo=algo, video_frequency=video_frequency)
     action_space = env.action_space
     if not isinstance(action_space, spaces.Box):
         raise ValueError("Continuous training script expects a continuous (Box) action space")
@@ -266,13 +269,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default='LunarLander-v3')
     parser.add_argument('--algo', type=str, choices=['sac', 'ppo', 'td3'], default='sac')
-    parser.add_argument('--episodes', type=int, default=500)
+    parser.add_argument('--episodes', type=int, default=1500)
     parser.add_argument('--learning-rate', '--lr', type=float, default=3e-4)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--entropy-coef', type=float, default=0.0)
     parser.add_argument('--value-coef', type=float, default=0.5)
     parser.add_argument('--max-grad-norm', type=float, default=0.5)
-    parser.add_argument('--record-video', action='store_true')
+    parser.add_argument('--record-video', dest='record_video', action='store_true', help='Enable video recording')
+    parser.add_argument('--no-record-video', dest='record_video', action='store_false', help='Disable video recording')
+    parser.add_argument('--video-frequency', type=int, default=50)
     parser.add_argument('--project', type=str, default='rl-ass4')
     parser.add_argument('--entity', type=str, default=None)
     parser.add_argument('--seed', type=int, default=42)
@@ -291,7 +296,9 @@ if __name__ == '__main__':
     parser.add_argument('--ppo-clip', type=float, default=0.2)
     parser.add_argument('--ppo-epochs', type=int, default=10)
     parser.add_argument('--ppo-gae-lambda', type=float, default=0.95)
-    parser.add_argument('--save-best', action='store_true')
+    parser.add_argument('--save-best', dest='save_best', action='store_true', help='Save best-performing model checkpoint')
+    parser.add_argument('--no-save-best', dest='save_best', action='store_false', help='Skip saving best-performing checkpoint')
+    parser.set_defaults(record_video=True, save_best=True)
     args = parser.parse_args()
 
     train(
@@ -304,6 +311,7 @@ if __name__ == '__main__':
         value_coef=args.value_coef,
         max_grad_norm=args.max_grad_norm,
         record_video=args.record_video,
+        video_frequency=args.video_frequency,
         project=args.project,
         entity=args.entity,
         seed=args.seed,
